@@ -1,0 +1,369 @@
+{
+    "name": "Ads Spend Workflow",
+    "nodes": [
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                -32
+            ],
+            "id": "e1b481f5-6364-49ce-b34c-b06afb7c17fa",
+            "name": "When clicking ‘Execute workflow’"
+        },
+        {
+            "parameters": {
+                "fileSelector": "/project/ads_spend.csv",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.readWriteFile",
+            "typeVersion": 1,
+            "position": [
+                224,
+                -32
+            ],
+            "id": "34b62393-ec49-4f83-80f0-7022d3466af9",
+            "name": "Read/Write Files from Disk"
+        },
+        {
+            "parameters": {
+                "options": {
+                    "headerRow": true
+                }
+            },
+            "type": "n8n-nodes-base.extractFromFile",
+            "typeVersion": 1,
+            "position": [
+                448,
+                -32
+            ],
+            "id": "fcf7c3db-f651-41b0-a932-2310790d618f",
+            "name": "Extract from File"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "WITH reference_date AS (\n    SELECT MAX(date::date) AS max_date FROM raw_ads_spend\n),\ndate_periods AS (\n    SELECT\n        *,\n        CASE\n            WHEN date::date > (SELECT max_date FROM reference_date) - INTERVAL '30 days' AND date::date <= (SELECT max_date FROM reference_date) THEN 'Last 30 Days'\n            WHEN date::date > (SELECT max_date FROM reference_date) - INTERVAL '60 days' AND date::date <= (SELECT max_date FROM reference_date) - INTERVAL '30 days' THEN 'Prior 30 Days'\n            ELSE NULL\n        END AS period\n    FROM raw_ads_spend\n    WHERE date::date > (SELECT max_date FROM reference_date) - INTERVAL '60 days'\n),\naggregated_metrics AS (\n    SELECT\n        period,\n        SUM(spend) AS total_spend,\n        SUM(conversions) AS total_conversions,\n        SUM(conversions * 100) AS total_revenue\n    FROM date_periods\n    WHERE period IS NOT NULL\n    GROUP BY period\n),\nkpi_by_period AS (\n    SELECT\n        period,\n        total_spend / NULLIF(total_conversions, 0) AS cac,\n        total_revenue / NULLIF(total_spend, 0) AS roas\n    FROM aggregated_metrics\n),\nfinal_comparison AS (\n    SELECT\n        'CAC' AS kpi,\n        MAX(CASE WHEN period = 'Last 30 Days' THEN cac END) AS current_value,\n        MAX(CASE WHEN period = 'Prior 30 Days' THEN cac END) AS prior_value\n    FROM kpi_by_period\n    UNION ALL\n    SELECT\n        'ROAS' AS kpi,\n        MAX(CASE WHEN period = 'Last 30 Days' THEN roas END) AS current_value,\n        MAX(CASE WHEN period = 'Prior 30 Days' THEN roas END) AS prior_value\n    FROM kpi_by_period\n)\nSELECT\n    kpi,\n    ROUND(current_value::numeric, 2) AS last_30_days,\n    ROUND(prior_value::numeric, 2) AS prior_30_days,\n    ROUND((((current_value - prior_value) / prior_value) * 100)::numeric, 2) || '%' AS delta\nFROM final_comparison;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                1120,
+                64
+            ],
+            "id": "d0bc214f-5242-40d1-a726-d7f8976b9f76",
+            "name": "KPI Modeling",
+            "executeOnce": true,
+            "credentials": {
+                "postgres": {
+                    "id": "26byguGVt8t42mzn",
+                    "name": "MyPostgres"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "schema": {
+                    "__rl": true,
+                    "value": "public",
+                    "mode": "list",
+                    "cachedResultName": "public"
+                },
+                "table": {
+                    "__rl": true,
+                    "value": "raw_ads_spend",
+                    "mode": "name"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "clicks": "={{ $json.clicks }}",
+                        "impressions": "={{ $json.impressions }}",
+                        "conversions": "={{ $json.conversions }}",
+                        "platform": "={{ $json.platform }}",
+                        "account": "={{ $json.account }}",
+                        "campaign": "={{ $json.campaign }}",
+                        "country": "={{ $json.country }}",
+                        "device": "={{ $json.device }}",
+                        "spend": "={{ $json.spend }}",
+                        "load_date": "={{ $json.load_date }}",
+                        "source_file_name": "={{ $json.source_file_name }}",
+                        "date": "={{ $json.date }}"
+                    },
+                    "matchingColumns": [],
+                    "schema": [
+                        {
+                            "id": "date",
+                            "displayName": "date",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "platform",
+                            "displayName": "platform",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "account",
+                            "displayName": "account",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "campaign",
+                            "displayName": "campaign",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "country",
+                            "displayName": "country",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "device",
+                            "displayName": "device",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "spend",
+                            "displayName": "spend",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "clicks",
+                            "displayName": "clicks",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "impressions",
+                            "displayName": "impressions",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "conversions",
+                            "displayName": "conversions",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "load_date",
+                            "displayName": "load_date",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "source_file_name",
+                            "displayName": "source_file_name",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        }
+                    ],
+                    "attemptToConvertTypes": false,
+                    "convertFieldsToString": false
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                896,
+                64
+            ],
+            "id": "84fb359d-d4fd-4668-982e-c6f6bf0ff242",
+            "name": "Data Ingestion",
+            "credentials": {
+                "postgres": {
+                    "id": "26byguGVt8t42mzn",
+                    "name": "MyPostgres"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "7a2080dd-a7f2-40e4-87f0-9767e896f7f5",
+                            "name": "source_file_name",
+                            "value": "={{ $('Read/Write Files from Disk').item.json.fileName }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "34ddd71e-2f19-4cdb-b752-1d96c470ed71",
+                            "name": "load_date",
+                            "value": "={{ $today }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "includeOtherFields": true,
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                672,
+                -32
+            ],
+            "id": "704aedde-0a5f-4c59-90be-c1893fde62c3",
+            "name": "Metadata Insert"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "CREATE TABLE IF NOT EXISTS raw_ads_spend (\n    date TEXT,\n    platform TEXT,\n    account TEXT,\n    campaign TEXT,\n    country TEXT,\n    device TEXT,\n    spend REAL,\n    clicks INTEGER,\n    impressions INTEGER,\n    conversions INTEGER,\n    load_date TEXT,\n    source_file_name TEXT\n);",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                896,
+                -128
+            ],
+            "id": "6a6e7dca-53ac-43e8-9249-becabc638281",
+            "name": "Table Model",
+            "credentials": {
+                "postgres": {
+                    "id": "26byguGVt8t42mzn",
+                    "name": "MyPostgres"
+                }
+            }
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "When clicking ‘Execute workflow’": {
+            "main": [
+                [
+                    {
+                        "node": "Read/Write Files from Disk",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Read/Write Files from Disk": {
+            "main": [
+                [
+                    {
+                        "node": "Extract from File",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract from File": {
+            "main": [
+                [
+                    {
+                        "node": "Metadata Insert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Data Ingestion": {
+            "main": [
+                [
+                    {
+                        "node": "KPI Modeling",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Metadata Insert": {
+            "main": [
+                [
+                    {
+                        "node": "Table Model",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Data Ingestion",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Table Model": {
+            "main": [
+                []
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "versionId": "2bc94b70-1c6e-4a4b-8d80-11dd69e49b85",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "502c5d2fe04f39b0dc900892633ba1c863c2f631c9f90cc4bff843c640630251"
+    },
+    "id": "6io3XzTo02qS4JBw",
+    "tags": []
+}
