@@ -34,7 +34,7 @@ This project is fully containerized. The only prerequisite is having Docker and 
 
 ### 2. Clone the Repository
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/Leo200467/ai_data_engineer_challenge.git
 cd <REPOSITORY_FOLDER>
 ```
 
