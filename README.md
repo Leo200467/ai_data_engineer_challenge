@@ -60,7 +60,7 @@ The `-d` flag runs the containers in detached mode. You can view the logs at any
 ## Project Components
 
 * `/api`: Contains the FastAPI application and its `Dockerfile`.
-* `/n8n`: Contains the `workflow.json` for automatic import by the n8n service.
+* `/n8n`: Contains the `workflow.json` for import in the n8n service.
 * `/models`: Contains the standalone SQL script for the KPI modeling.
 * `/results`: Contains the screenshot of the final API output.
 * `compose.yml`: Defines the entire multi-container environment and its services.
