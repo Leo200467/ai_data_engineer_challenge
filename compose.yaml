@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: postgres_db
+    restart: always
+    env_file: ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n_service
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - N8N_CREDENTIAL_POSTGRES_HOST=${N8N_CRED_HOST}
+      - N8N_CREDENTIAL_POSTGRES_DATABASE=${N8N_CRED_DB}
+      - N8N_CREDENTIAL_POSTGRES_USER=${N8N_CRED_USER}
+      - N8N_CREDENTIAL_POSTGRES_PASSWORD=${N8N_CRED_PASS}
+      - N8N_CREDENTIAL_POSTGRES_PORT=${N8N_CRED_PORT}
+      - N8N_CREDENTIAL_NAME=${N8N_CRED_NAME}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - .:/project
+      - ${PWD}/n8n:/home/node/.n8n/workflows
+    depends_on:
+      - db
+
+  api:
+    container_name: api_service
+    build: ./api
+    restart: always
+    env_file: ./.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+  n8n_data:
